@@ -1,0 +1,46 @@
+package ru.grigoriev.repository;
+
+import org.springframework.stereotype.Repository;
+import ru.grigoriev.model.Post;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
+
+@Repository
+public class PostRepositoryStubImpl implements PostRepository {
+    private static final AtomicLong counter = new AtomicLong(0);
+    private static final Map<Long, Post> repository = new ConcurrentHashMap<>();
+
+    public List<Post> all() {
+        return new ArrayList<>(repository.values());
+    }
+
+    public Optional<Post> getById(long id) {
+        return Optional.ofNullable(repository.getOrDefault(id, null));
+    }
+
+    public Optional<Post> save(Post post) {
+        return Optional.ofNullable(post)
+                .filter((v) -> v.getId() == 0)
+                .map((v) -> {
+                    post.setId(counter.addAndGet(1));
+                    post.setRemoved(true);
+                    repository.put(counter.get(), post);
+                    return v;
+                }).or(() -> Optional.ofNullable(repository.computeIfPresent(post.getId(), (k, o) -> post))
+                        .filter(Post::isRemoved));
+    }
+
+    public Optional<Post> removeById(long id) {
+        return getById(id)
+                .filter(Post::isRemoved)
+                .map(p -> {
+                    p.setRemoved(false);
+                    return p;
+                });
+    }
+}
